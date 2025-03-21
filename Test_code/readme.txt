@@ -1,4 +1,6 @@
 This workspace is designed to test ROS2 humble - OpenRB-150 environment.
+Befor using this workspace, you should upload sketch(OpenR-150 branch) on OpenRB-150 arduino board.
+Using Arduino-ide is Strongly recommended before connect ROS2 humble.
 The nodes send 3-digits data through the serial port.  ( e.g., '100 100 100\n')
 Follow the steps below to use the nodes in this workspace.
 
