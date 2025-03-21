@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>whleg_teleop</name>
+  <version>0.0.1</version>
+  <description>Keyboard teleoperation for ROS 2</description>
+  <maintainer email="yk.kwon18@gmail.com">lancelot22</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+
