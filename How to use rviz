@@ -4,3 +4,5 @@ Add -> RobotModel
 FixedFrame -> your base frame
 RobotModel
        ㄴ Description Topic -> /robot_description
+       
+If you want control object, make node in pakage
