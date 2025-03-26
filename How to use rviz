@@ -1,0 +1,6 @@
+Add -> TF
+Add -> RobotModel
+
+FixedFrame -> your base frame
+RobotModel
+       ㄴ Description Topic -> /robot_description
