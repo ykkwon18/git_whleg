@@ -14,7 +14,7 @@ class BringupNode(Node):
 		self.subscription  # prevent unused variable warning
 
 		# 여러 OpenRB-150 보드와 연결
-		port_list = ['/dev/ttyACM0', '/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3']
+		port_list = ['/dev/OpenRB150_1', '/dev/OpenRB150_3', '/dev/OpenRB150_5', '/dev/OpenRB150_7']
 		self.serial_ports = []
 		self.connected_ports = []
 		self.failed_ports = []
