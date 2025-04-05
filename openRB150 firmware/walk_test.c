@@ -134,6 +134,11 @@ void computeLegIK(int mode, int i) {
 	Parabola(mode);  // compute x,y of Leg 
 	InvKin();       // IK -> theta_M theta_L
 
+	if(i ==3 || i == 5){  // 왼쪽 다리일 경우, theta_M을 반전시킴
+		theta_M = -theta_M;
+		theta_L = -theta_L;
+	}
+
 	// 각도(rad) → 다이나믹셀 0~4095로 변환
 	int pos_M = map(theta_M * 180 / PI, -150, 150, 0, 4095);
 	int pos_L = map(theta_L * 180 / PI, -150, 150, 0, 4095);
