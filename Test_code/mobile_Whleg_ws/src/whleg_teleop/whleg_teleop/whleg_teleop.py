@@ -1,3 +1,5 @@
+#아직 수정 안함
+
 import sys
 import select
 import termios
