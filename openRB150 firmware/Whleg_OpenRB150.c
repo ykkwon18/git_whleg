@@ -18,8 +18,8 @@
 
 #include <Dynamixel2Arduino.h>
 
-#define USB_SERIAL Serial
-#define DXL_SERIAL Serial1
+#define USB_SERIAL Serial     // 컴퓨터로 가는 시리얼
+#define DXL_SERIAL Serial1    // 모터로 가는 시리얼
 #define My_OpenRB_Number 1    // **OpenRB 보드 넘버에 따라 반드시 숫자 변경**
 
 const float PROTOCOL_VERSION = 2.0;
@@ -40,6 +40,14 @@ float tstep = 2.0;  // 시간 스텝 길이 (2초)
 
 float lin = 0.0;
 float ang = 0.0;
+float Wr = 0.0;
+float Wl = 0.0;
+
+float radius = 100.0;    // 바퀴의 반지름(mm)
+float width = 243.0;    // 바퀴 사이의 거리(mm)
+float A = width/radius;   // L/r (상수)
+// Wr = 1/2 (1/r lin + A ang)   [rad/s]
+// Wl = 1/2 (1/r lin - A ang)
 
 bool driving_mode = true                      // True: Wheel, False: Leg
 bool Transforming = false                     // 변신중: True
@@ -142,11 +150,23 @@ void loop() {
   }
 }
 
+// cmd_vel 값에 따라 바퀴 모터들에 rpm 명령하는 함수
 void Wheel_Mode(){
+	Wr = 1/2*(1/r*lin + A*ang)*30/PI;   // rpm 단위로 오른쪽 바퀴 각속도 계산
+	Wl = 1/2*(1/r*lin - A*ang)*30/PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
 	
-
+	for(int i=1; i<=7; i+=2){
+		if (i == 오른쪽 || i == 오른쪽 ){
+			dxl.setGoalVelocity(i, Wr, UNIT_RPM);
+		}
+		else{
+			dxl.setGoalVelocity(i, Wl, UNIT_RPM);
+		}
+	}
+	delay(100);
 }
 
+// 통합 다리 제어 함수
 void Leg_Mode(){
 
 	int walk_index = 1;              // 이번 tstep에 전진시킬 다리 번호. walk이므로 하나의 다리가 전진할 때 나머지 다리는 후진한다. 1번 다리부터 전진한다.
@@ -176,6 +196,7 @@ void Leg_Mode(){
 	
 }
 
+// 바퀴 -> 다리 변형 함수
 void Transform_to_Leg(){
 	for (int i = 1; i <= 2; i++) {
     dxl.torqueOff(i);
@@ -196,6 +217,7 @@ void Transform_to_Leg(){
   delay(3000);
 }
 
+// 다리 -> 바퀴 변형 함수
 void Transform_to_Wheel(){
 	// 미완. 완전히 접는 코드 추가해야함
 	for (int i = 1; i <= 2; i++) {
@@ -205,7 +227,7 @@ void Transform_to_Wheel(){
 	}
 }
 
-//Command position to motor
+// 모터의 포지션을 계산하는 함수
 void computeLegIK(int mode, int i) {
 
 	Parabola(mode);  // compute x,y of Leg 
@@ -227,7 +249,7 @@ void computeLegIK(int mode, int i) {
 	dxl.setGoalPosition(i+1, pos_L);
 }
 
-//comtpute IK
+// Inverse Kinematics 계산하는 함수
 void InvKin() {
 	float k1, k2, cos2, sin2;  // k1, k2는 링크 길이와 관련된 변수
 	
@@ -245,7 +267,7 @@ void InvKin() {
 	theta_H = atan2(y, x) - atan2(k2, k1);  // theta_H 계산(rad)
 }
 
-//현재 t와 mode에 대해 x,y좌표를 계산하는 함수
+// 현재 t와 mode에 대해 x,y좌표를 계산하는 함수
 void Parabola(int mode) {
 
 	switch (mode)
