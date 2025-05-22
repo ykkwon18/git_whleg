@@ -1,4 +1,4 @@
-#최종 수정일 - 2025.05.21
+#최종 수정일 - 2025.05.22
 #4축 실제 구동을 위한 코드
 
 import rclpy
@@ -15,18 +15,18 @@ class BringupNode(Node):
 	def __init__(self):
 		super().__init__('whleg_bringup')
 
-		self.create_subscription(Twist, '/cmd_vel', self.send_serial_commands, 10)
-		self.create_subscription(String, '/driving_mode', self.driving_mode_callback, 10)
+		self.create_subscription(Twist, '/cmd_vel', self.send_serial_commands, 10)                    # /cmd_vel 구독
+		self.create_subscription(String, '/driving_mode', self.driving_mode_callback, 10)             # /driving_mode 구독
 
-		self.time_publisher = self.create_publisher(Int32, '/time', 10)
+		self.time_publisher = self.create_publisher(Int32, '/time', 10)                               # /time 퍼블리시
 		self.create_timer(1.0, self.publish_time)
 
-		port_list = ['/dev/OpenRB150_1', '/dev/OpenRB150_3', '/dev/OpenRB150_5', '/dev/OpenRB150_7']
+		port_list = ['/dev/OpenRB150_1', '/dev/OpenRB150_3', '/dev/OpenRB150_5', '/dev/OpenRB150_7']  # 사전에 정의된 포트 이름. 우분투의 포트 설정파일은 깃허브에 있음.
 		self.serial_ports = []
 		self.connected_ports = []
 		self.failed_ports = []
 
-		for port in port_list:
+		for port in port_list:     # 포트들에 시리얼 통신 체크
 			try:
 				ser = serial.Serial(port, 57600, timeout=1)
 				self.serial_ports.append(ser)
@@ -34,7 +34,7 @@ class BringupNode(Node):
 			except serial.SerialException:
 				self.failed_ports.append(port)
 
-		if self.connected_ports:
+		if self.connected_ports:   # 시리얼 통신 성공한 포트들 출력
 			self.get_logger().info("✅ 연결된 포트:")
 			for port in self.connected_ports:
 				self.get_logger().info(f"  - {port}")
@@ -50,12 +50,14 @@ class BringupNode(Node):
 		self.sent_initial_time = False
 		self.current_mode = "Wheel"  # 기본 모드
 
+	# /time 퍼블리시 함수
 	def publish_time(self):
 		sec = int(self.get_clock().now().seconds_nanoseconds()[0])
 		msg = Int32()
 		msg.data = sec
 		self.time_publisher.publish(msg)
 
+	# /driving_mode 퍼블리시 함수
 	def driving_mode_callback(self, msg: String):
 		if msg.data in ["Wheel", "Leg"]:
 			self.current_mode = msg.data
@@ -63,8 +65,12 @@ class BringupNode(Node):
 		else:
 			self.get_logger().warn(f"⚠️ 잘못된 모드 수신: '{msg.data}'")
 
+	# 통합 시리얼 송신 함수. 헤더에 따라 데이터를 구분.
+	# 0: 시간
+	# 1: cmd_vel
+	# 2: 주행 모드
 	def send_serial_commands(self, msg: Twist):
-		if not self.sent_initial_time:
+		if not self.sent_initial_time:               # 노드 처음 실행시 openrb-150 들에 0초 임을 알림
 			sec = int(self.get_clock().now().seconds_nanoseconds()[0])
 			time_str = f"{sec:04d}"[-4:]
 			cmd_time = f"0 {time_str}\n".encode('utf-8')
@@ -76,11 +82,11 @@ class BringupNode(Node):
 			self.get_logger().info(f"⏱ 초기 시간 전송: {cmd_time.decode().strip()}")
 			self.sent_initial_time = True
 
-		linear_x = int(msg.linear.x * 100)
+		linear_x = int(msg.linear.x * 100)           # /cmd_vel의 x속도와, z각속도값을 송신
 		angular_z = int(msg.angular.z * 100)
 		cmd_velocity = f"1 {linear_x:+03d} {angular_z:+03d}\n".encode('utf-8')
 
-		mode_value = 1 if self.current_mode == "Wheel" else 0
+		mode_value = 1 if self.current_mode == "Wheel" else 0     # driving_mode 전송. Wheel -> 1, Leg -> 0
 		cmd_mode = f"2 {mode_value}\n".encode('utf-8')
 
 		for ser in self.serial_ports:
@@ -93,6 +99,7 @@ class BringupNode(Node):
 		self.get_logger().info(f"📤 속도 전송: {cmd_velocity.decode().strip()}")
 		self.get_logger().info(f"📤 모드 전송: {cmd_mode.decode().strip()}")
 
+	# 노드 종료시 속도 0 명령을 보냄
 	def send_stop_command(self):
 		stop_cmd = "1 +000 +000\n".encode('utf-8')
 		for ser in self.serial_ports:
@@ -102,6 +109,7 @@ class BringupNode(Node):
 				self.get_logger().error(f"❌ 정지 명령 전송 실패: {e}")
 		self.get_logger().info("🛑 정지 명령 '1 +000 +000' 전송 완료")
 
+# esc 또는 Ctrl+C 감지
 def check_esc_pressed():
 	"""ESC 키 입력 감지 함수"""
 	fd = sys.stdin.fileno()
