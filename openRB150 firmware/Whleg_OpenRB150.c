@@ -1,10 +1,15 @@
-// 워킹 테스트. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
+//휠-레그 통합 구동 펌웨어. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
 
 // i는 다리 번호를 의미한다.
-// 3 1
-// 5 7  순서로 아두이노 번호가 지정되었다. **현 코드에서는 3, 1 다리만을 테스트한다.**
+// 1 3
+// 7 5  순서로 아두이노 번호가 지정되었다.
 // 모터 ID는 1~8로, 홀수 번은 다리 번호와 같으며, 짝수 번은 다리 번호 + 1이다.       예를 들어, 1번 다리의 모터 ID는 1, 2번 다리의 모터 ID는 3이다.
 // 다리 번호를 i로 지정하고, 다리당 2개의 모터를 동시 구동할 것이므로, 모터 ID i와 i+1을 지정하여 작동시키면 된다.
+
+//  *2*     *1*         3        4          정방향
+//  접-      앞-        앞+       접+          앞+
+//  8       *7*         5       *6*          접힘+
+//  접+      앞-        앞+       접-
 
 // mode는 다리의 움직임을 결정하는 변수이다.
 // mode = 0 : 직선으로 뒤로 이동.                       ||  x= 0.06 -> 0.0     y = 0.08
@@ -49,8 +54,9 @@ float A = width/radius;   // L/r (상수)
 // Wr = 1/2 (1/r lin + A ang)   [rad/s]
 // Wl = 1/2 (1/r lin - A ang)
 
-bool driving_mode = true                      // True: Wheel, False: Leg
-bool Transforming = false                     // 변신중: True
+bool driving_mode = true;                      // True: Wheel, False: Leg
+bool Transforming = false;                     // 변신중: True
+bool onoff = true;
 
 String dbg(int code, const String& msg) {     // 디버깅 메시지의 헤더 뒤에 보드 넘버 추가하는 함수
   int header = code * 10 + My_OpenRB_Number;  // 앞자리: 메시지 종류, 뒷자리: 보드 번호
@@ -126,23 +132,53 @@ void loop() {
 			}
     		break;
         }
+		// 9: 전원 onoff
+		case 9: {
+			onoff = !onoff;
+			Serial.println(dbg(3, onoff ? "ON 모드로 전환됨" : "OFF 모드로 전환됨"));
+
+			Fold();
+			for (int i = 1; i <= 2; i++) {
+				dxl.torqueOff(i);
+				dxl.torqueOff(i + 1);
+			}
+			break;
+		}
         default:
         	Serial.println(dbg(9, "알 수 없는 헤더 값"));
         	break;
       }
     }
   }
+  while (!onoff) {      // onoff 전환
+	if (Serial.available()){
+		String input = Serial.readStringUntil(' ');
+		input.trim();
+		int firstSpace = input.indexOf(' ');
+		if (firstSpace != -1){
+			int header = input.substring(0, firstSpace).toInt();
+			String rest = input.substring(firstSpace + 1);
+
+			if (header == 9){
+				onoff = !onoff;
+				Serial.println(dbg(3, onoff ? "ON 모드로 전환됨" : "OFF 모드로 전환됨"));
+				break;
+			}
+		}
+	}
+	delay(100);
+  }
 
   // 주기적 제어
   if (driving_mode) {         //휠 모드
-	if (Transforming){        //만약 변신중이라면,
+	if (Transforming) {        //만약 변신중이라면,
 		Transform_to_Wheel();
 		Transforming = false;
 	}
     Wheel_Mode();
   }
   else {                      //다리 모드
-	if (Transforming){        //만약 변신중이라면,
+	if (Transforming) {        //만약 변신중이라면,
 		Transform_to_Leg();
 		Transforming = false;
 	}
@@ -156,11 +192,11 @@ void Wheel_Mode(){
 	Wl = 1/2*(1/r*lin - A*ang)*30/PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
 	
 	for(int i=1; i<=7; i+=2){
-		if (i == 오른쪽 || i == 오른쪽 ){
+		if (i == 3 || i == 5 ){                       // if 오른쪽 바퀴
 			dxl.setGoalVelocity(i, Wr, UNIT_RPM);
 		}
 		else{
-			dxl.setGoalVelocity(i, Wl, UNIT_RPM);
+			dxl.setGoalVelocity(i, -Wl, UNIT_RPM);    // 왼쪽 바퀴들은 역방향
 		}
 	}
 	delay(100);
@@ -219,7 +255,7 @@ void Transform_to_Leg(){
 
 // 다리 -> 바퀴 변형 함수
 void Transform_to_Wheel(){
-	// 미완. 완전히 접는 코드 추가해야함
+	Fold();
 	for (int i = 1; i <= 2; i++) {
     dxl.torqueOff(i);
     dxl.setOperatingMode(i, OP_VELOCITY);
@@ -233,9 +269,15 @@ void computeLegIK(int mode, int i) {
 	Parabola(mode);  // compute x,y of Leg 
 	InvKin();       // IK -> theta_H theta_L
 
-	if(i ==3 || i == 5){  // 왼쪽 다리일 경우, theta_M을 반전시킴
-		theta_H = -theta_H;
-		theta_L = -theta_L;
+	if(i == 1 ){  // 1,2,6,7 모터의 경우 각도를 역방향으로.
+		theta_H = -theta_H;  // 1번
+		theta_L = -theta_L;  // 2번
+	}
+	if(i == 5 ){
+		theta_L = -theta_L;  // 6번
+	}
+	if(i == 7 ){
+		theta_H = -theta_H;  // 7번
 	}
 
 	float pos_H = 2048 + (theta_H * 2048 / PI);  // theta_H(rad) -> pos_H(0~4095) || 0도는 2048
@@ -307,4 +349,33 @@ void Erection(){
 	computeLegIK(0,7);
 	t = 0.0;  // t 초기화
 	delay(2000);
+}
+
+// 다리 완전히 접고 2초 대기
+void Fold(){
+	for (int i = 1; i <= 2; i++) {
+		dxl.torqueOff(i);
+		dxl.setOperatingMode(i, OP_POSITION);
+		dxl.torqueOn(i);
+	}
+
+	for(int i=2; i<=8; i+=2) {
+		if(i == 2 || i == 6){     // 2,6번 모터 역방향
+			dxl.setGoalPosition(i, 0);
+		}
+		else{
+			dxl.setGoalPosition(i, 4095);
+		}
+	}
+	delay(1000);
+	for (int i = 1; i <= 2; i++) {
+    dxl.torqueOff(i);
+    dxl.torqueOff(i + 1);
+    dxl.setOperatingMode(i, OP_VELOCITY);
+    dxl.setOperatingMode(i + 1, OP_POSITION);
+    dxl.torqueOn(i);
+    dxl.torqueOn(i + 1);
+	}
+
+	delay(2000);    // 2 초간 대기
 }
