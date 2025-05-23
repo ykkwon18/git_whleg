@@ -9,7 +9,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import String
+from std_msgs.msg import String, Int32
 
 class TeleopNode(Node):
 	def __init__(self):
@@ -18,14 +18,16 @@ class TeleopNode(Node):
 		#/cmd_vel, /driving_mode 퍼블리시
 		self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
 		self.mode_publisher = self.create_publisher(String, '/driving_mode', 10)
+		self.power_publisher = self.create_publisher(Int32, '/power', 10)  # /power 퍼블리셔 추가
 
-		print("키보드 입력 시작: w/s/a/d 이동, q/e 대각선, Ctrl+C 정지, f: 속도 토글, t: 주행 모드 토글", flush=True)
+		print("키보드 입력 시작: w/s/a/d 이동, q/e 대각선, Ctrl+C 정지, f: 속도 토글, t: 주행 모드 토글, p: 전원 토글", flush=True)
 		self.settings = termios.tcgetattr(sys.stdin)
 
 		self.speed_linear = 1.0
 		self.speed_angular_degree = 20.0
 		self.fast_mode = False
 		self.current_mode = "Wheel"  # 시작은 Wheel 모드
+		self.current_power = 1       # 시작은 전원 ON
 
 		self.run()
 
@@ -62,6 +64,14 @@ class TeleopNode(Node):
 						mode_msg.data = self.current_mode
 						self.mode_publisher.publish(mode_msg)
 						print(f"[{key}] → 주행 모드 전환: {self.current_mode}", flush=True)
+						continue
+
+					if key == 'p':  # 전원 토글
+						self.current_power = 0 if self.current_power == 1 else 1
+						power_msg = Int32()
+						power_msg.data = self.current_power
+						self.power_publisher.publish(power_msg)
+						print(f"[{key}] → 전원 상태 전환: {self.current_power}", flush=True)
 						continue
 
 					msg = Twist()
