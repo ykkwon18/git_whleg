@@ -118,7 +118,7 @@ void loop() {
         }
 		//2: driving_mode 수신
         case 2: {
-			bool prev_mode = drving_mode;
+			bool prev_mode = driving_mode;
 
 			if (rest.toInt() == 1){
 				driving_mode = true;
@@ -188,8 +188,8 @@ void loop() {
 
 // cmd_vel 값에 따라 바퀴 모터들에 rpm 명령하는 함수
 void Wheel_Mode(){
-	Wr = 1/2*(1/r*lin + A*ang)*30/PI;   // rpm 단위로 오른쪽 바퀴 각속도 계산
-	Wl = 1/2*(1/r*lin - A*ang)*30/PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
+	Wr = 1/2*(1/radius*lin + A*ang)*30.0/PI;   // rpm 단위로 오른쪽 바퀴 각속도 계산
+	Wl = 1/2*(1/radius*lin - A*ang)*30.0/PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
 	
 	for(int i=1; i<=7; i+=2){
 		if (i == 3 || i == 5 ){                       // if 오른쪽 바퀴
@@ -208,7 +208,7 @@ void Leg_Mode(){
 	int walk_index = 1;              // 이번 tstep에 전진시킬 다리 번호. walk이므로 하나의 다리가 전진할 때 나머지 다리는 후진한다. 1번 다리부터 전진한다.
 	while(walk_index <= 7){          // 다리 번호는 1, 3, 5, 7만 사용한다.
 
-		while(){
+		while(true){
 
 			for(int i=1; i <= 7; i += 2){  // 코드에 적용할 다리 번호 변수 i를 1, 3로 바꿔가면서 walk_index와 일치하는 지 확인
 				if(i == walk_index ){      // i가 walk_index와 같으면 || 해당 다리는 mode 1로 전진
@@ -297,7 +297,7 @@ void InvKin() {
 	
     cos2 = (x*x + y*y - L1*L1 - L2*L2) / (2*L1*L2);  // cos(theta_L) 계산
 	if(cos2*cos2>1){
-		println("cos(theta_L) > 1.0");  // cos(theta_L) 값이 1보다 크면 오류 발생
+		Serial.println("cos(theta_L) > 1.0");  // cos(theta_L) 값이 1보다 크면 오류 발생
 		return;
 	}
 	sin2 = sqrt(1 - cos2*cos2);  // sin(theta_L) 계산 || 무릎을 앞으로 굽힐 것이므로, sin(theta_L)은 양수로 설정
