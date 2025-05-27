@@ -332,6 +332,7 @@ void Parabola(int mode) {
 		case 3: // init line
 			y = 30.0*t;   // y 좌표가 0 ~ 60
 			x = 80.0;
+			break;
 
 		default:
 			Serial.println("parabola error");
