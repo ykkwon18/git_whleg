@@ -354,7 +354,7 @@ void Erection(){
 
 // 다리 완전히 접고 2초 대기
 void Fold(){
-	for (int i = 1; i <= 2; i++) {
+	for (int i = 1; i <= 7; i += 2) {
 		dxl.torqueOff(i);
 		dxl.setOperatingMode(i, OP_POSITION);
 		dxl.torqueOn(i);
@@ -369,7 +369,7 @@ void Fold(){
 		}
 	}
 	delay(1000);
-	for (int i = 1; i <= 2; i++) {
+	for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
     dxl.torqueOff(i + 1);
     dxl.setOperatingMode(i, OP_VELOCITY);
