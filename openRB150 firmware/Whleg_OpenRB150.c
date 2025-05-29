@@ -70,7 +70,7 @@ void setup() {
 
   Serial.println(dbg(0, "OpenRB-150 펌웨어 시작됨!"));
 
-  for (int i = 1; i <= 2; i++) {
+  for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
     dxl.torqueOff(i + 1);
     dxl.setOperatingMode(i, OP_VELOCITY);
@@ -138,7 +138,7 @@ void loop() {
 			Serial.println(dbg(3, onoff ? "ON 모드로 전환됨" : "OFF 모드로 전환됨"));
 
 			Fold();
-			for (int i = 1; i <= 2; i++) {
+			for (int i = 1; i <= 7; i += 2) {
 				dxl.torqueOff(i);
 				dxl.torqueOff(i + 1);
 			}
@@ -188,8 +188,8 @@ void loop() {
 
 // cmd_vel 값에 따라 바퀴 모터들에 rpm 명령하는 함수
 void Wheel_Mode(){
-	Wr = 1/2*(1/radius*lin + A*ang)*30.0/PI;   // rpm 단위로 오른쪽 바퀴 각속도 계산
-	Wl = 1/2*(1/radius*lin - A*ang)*30.0/PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
+	Wr = 0.5 * ( lin / radius + A * ang ) * 30.0 / PI;   // rpm 단위로 오른쪽 바퀴 각속도 계산
+	Wl = 0.5 * ( lin / radius - A * ang ) * 30.0 / PI;   // rpm 단위로 왼쪽 바퀴 각속도 계산
 	
 	for(int i=1; i<=7; i+=2){
 		if (i == 3 || i == 5 ){                       // if 오른쪽 바퀴
@@ -234,7 +234,7 @@ void Leg_Mode(){
 
 // 바퀴 -> 다리 변형 함수
 void Transform_to_Leg(){
-	for (int i = 1; i <= 2; i++) {
+	for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
     dxl.setOperatingMode(i, OP_POSITION);
     dxl.torqueOn(i);
@@ -256,7 +256,7 @@ void Transform_to_Leg(){
 // 다리 -> 바퀴 변형 함수
 void Transform_to_Wheel(){
 	Fold();
-	for (int i = 1; i <= 2; i++) {
+	for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
     dxl.setOperatingMode(i, OP_VELOCITY);
     dxl.torqueOn(i);
@@ -296,8 +296,8 @@ void InvKin() {
 	float k1, k2, cos2, sin2;  // k1, k2는 링크 길이와 관련된 변수
 	
     cos2 = (x*x + y*y - L1*L1 - L2*L2) / (2*L1*L2);  // cos(theta_L) 계산
-	if(cos2*cos2>1){
-		Serial.println("cos(theta_L) > 1.0");  // cos(theta_L) 값이 1보다 크면 오류 발생
+	if( cos2*cos2>1 ){
+		Serial.println(dbg(8, "cos(theta_L) > 1.0"));  // cos(theta_L) 값이 1보다 크면 오류 발생
 		return;
 	}
 	sin2 = sqrt(1 - cos2*cos2);  // sin(theta_L) 계산 || 무릎을 앞으로 굽힐 것이므로, sin(theta_L)은 양수로 설정
@@ -360,7 +360,7 @@ void Fold(){
 		dxl.torqueOn(i);
 	}
 
-	for(int i=2; i<=8; i+=2) {
+	for(int i=2; i <= 8; i+=2) {
 		if(i == 2 || i == 6){     // 2,6번 모터 역방향
 			dxl.setGoalPosition(i, 0);
 		}
@@ -369,6 +369,7 @@ void Fold(){
 		}
 	}
 	delay(1000);
+
 	for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
     dxl.torqueOff(i + 1);
