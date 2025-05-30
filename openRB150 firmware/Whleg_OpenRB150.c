@@ -208,10 +208,10 @@ void Wheel_Mode(){
 	
 	for(int i=1; i<=7; i+=2){
 		if (i == 3 || i == 5 ){                       // if 오른쪽 바퀴
-			dxl.setGoalVelocity(i, Wr, UNIT_RPM);
+			dxl.setGoalVelocity(i, -Wr, UNIT_RPM);
 		}
 		else{
-			dxl.setGoalVelocity(i, -Wl, UNIT_RPM);    // 왼쪽 바퀴들은 역방향
+			dxl.setGoalVelocity(i, Wl, UNIT_RPM);    // 왼쪽 바퀴들은 역방향
 		}
 	}
 	delay(100);
@@ -284,9 +284,9 @@ void computeLegIK(int mode, int i) {   // 구동 모드, 다리 번호
 	Parabola(mode);  // compute x,y of Leg 
 	InvKin();       // IK -> theta_H theta_L
 
-	if(i == 1 ){  // 1,2,6,7 모터의 경우 각도를 역방향으로.
-		theta_H = -theta_H;  // 1번
-		theta_L = -theta_L;  // 2번
+	if(i == 3 ){  // 3,4, (뒤에는 아직 안함) 모터의 경우 각도를 역방향으로.
+		theta_H = -theta_H;  // 3번
+		theta_L = -theta_L;  // 4번
 	}
 	if(i == 5 ){
 		theta_L = -theta_L;  // 6번
