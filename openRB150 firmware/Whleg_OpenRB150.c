@@ -37,169 +37,153 @@ const float PROTOCOL_VERSION = 2.0;
 
 Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 
-float theta_H = 0.0;      // 휠의 모터 각도
-float theta_L = 0.0;      // 다리의 모터 각도
-float x = 0.0;            // 다리 x좌표 계산을 위한 전역변수
-float y = 0.0;            // 다리 y좌표 계산을 위한 전역변수
+float theta_H = 0.0;
+float theta_L = 0.0;
+float x = 0.0;
+float y = 0.0;
 
-float L1 = 35;         // 링크1 길이 (mm)
-float L2 = 85;         // 링크2 길이 (mm)
+float L1 = 35;
+float L2 = 85;
 
-float dt = 0.05;  // dt = 0.05초
-float t = 0.0;   // 시간 변수
-float tstep = 2.0;  // 시간 스텝 길이 (2초)
+float dt = 0.05;
+float t = 0.0;
+float tstep = 2.0;
 
 float lin = 0.0;
 float ang = 0.0;
 float Wr = 0.0;
 float Wl = 0.0;
 
-float radius = 100.0;    // 바퀴의 반지름(mm)
-float width = 243.0;    // 바퀴 사이의 거리(mm)
-float A = width/radius;   // L/r (상수)
-// Wr = 1/2 (1/r lin + A ang)   [rad/s]
-// Wl = 1/2 (1/r lin - A ang)
+float radius = 50.0;
+float width = 243.0;
+float A = width / radius;
 
-bool driving_mode = true;                      // True: Wheel, False: Leg
-bool Transforming = false;                     // 변신중: True
-bool onoff = true;                             // 전원 on off
+bool driving_mode = true;
+bool Transforming = false;
+bool onoff = true;
 
-String dbg(int code, const String& msg) {     // 디버깅 메시지의 헤더 뒤에 보드 넘버 추가하는 함수
-  int header = code * 10 + My_OpenRB_Number;  // 앞자리: 메시지 종류, 뒷자리: 보드 번호
-  return String(header) + " " + msg;
+String input_buffer = "";
+
+String dbg(int code, const String& msg) {
+	int header = code * 10 + My_OpenRB_Number;
+	return String(header) + " " + msg;
 }
 
 void setup() {
-  USB_SERIAL.begin(57600);
-  dxl.begin(57600);
-  dxl.setPortProtocolVersion(PROTOCOL_VERSION);
+	USB_SERIAL.begin(57600);
+	dxl.begin(57600);
+	dxl.setPortProtocolVersion(PROTOCOL_VERSION);
 
-  Serial.println(dbg(0, "OpenRB-150 펌웨어 시작됨!"));
-  
-  // 9 입력될 때까지 대기
-  while (true) {
-    if (Serial.available()) {
-      String input = Serial.readStringUntil('\n');
-      input.trim();
-      int header = input.toInt();
-      if (header == 9) {
-        Serial.println(dbg(3, "전원 On 명령 수신, 시작됨"));
-        break;
-      }
-    }
-    delay(100);
-  }
+	Serial.println(dbg(0, "OpenRB-150 펌웨어 시작됨!"));
 
-  for (int i = 1; i <= 7; i += 2) {
-    dxl.torqueOff(i);
-    dxl.torqueOff(i + 1);
-    dxl.setOperatingMode(i, OP_VELOCITY);
-    dxl.setOperatingMode(i + 1, OP_POSITION);
-    dxl.torqueOn(i);
-    dxl.torqueOn(i + 1);
-  }
+	while (true) {
+		if (Serial.available()) {
+			String input = Serial.readStringUntil('\n');
+			input.trim();
+			int header = input.toInt();
+			if (header == 9) {
+				Serial.println(dbg(3, "전원 On 명령 수신, 시작됨"));
+				break;
+			}
+		}
+		delay(100);
+	}
 
-  delay(5000);
+	for (int i = 1; i <= 7; i += 2) {
+		dxl.torqueOff(i);
+		dxl.torqueOff(i + 1);
+		dxl.setOperatingMode(i, OP_VELOCITY);
+		dxl.setOperatingMode(i + 1, OP_POSITION);
+		dxl.torqueOn(i);
+		dxl.torqueOn(i + 1);
+	}
+
+	delay(5000);
 }
 
 void loop() {
-  if (Serial.available()) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
-    Serial.println(dbg(1, "수신된 명령: " + input));
-
-    int firstSpace = input.indexOf(' ');
-    int header;
-    String rest;
-
-    if (firstSpace == -1) {
-      header = input.toInt();
-    } else {
-      header = input.substring(0, firstSpace).toInt();
-      rest = input.substring(firstSpace + 1);
-    }
-
-    switch (header) {
-	  // 0: 시작 시간 수신
-      case 0: {
-        int startTime = rest.toInt();
-        Serial.println(dbg(1, "시작 시간 수신: " + String(startTime)));
-        break;
-      }
-	  // 1 전진속도 조향속도
-      case 1: {
-        int sep = rest.indexOf(' ');
-        if (sep == -1) {
-          Serial.println(dbg(9, "속도 명령 파싱 오류"));
-          break;
-        }
-        lin = rest.substring(0, sep).toInt();
-        ang = rest.substring(sep + 1).toInt();
-        Serial.println(dbg(1, "linear_x: " + String(lin) + ", angular_z: " + String(ang)));
-        break;
-      }
-	  // 2 1 휠모드 | 2 0 다리 모드
-      case 2: {
-        bool prev_mode = driving_mode;
-		int mode_input = rest.length() > 0 ? rest.toInt() : -1;
-		
-		if (mode_input == 1){
-			driving_mode = true;
+	if (Serial.available()) {
+		char c = Serial.read();
+		if (c == '\n') {
+			input_buffer.trim();
+			process_command(input_buffer);
+			input_buffer = "";
+		} else {
+			input_buffer += c;
 		}
-		else if (mode_input == 0){
-			driving_mode = false;
+	}
+
+	if (!onoff) return;
+
+	if (driving_mode) {
+		if (Transforming) {
+			Transform_to_Wheel();
+			Transforming = false;
 		}
-
-		if (prev_mode != driving_mode){
-			Transforming = true;
+		Wheel_Mode();
+	} else {
+		if (Transforming) {
+			Transform_to_Leg();
+			Transforming = false;
 		}
-		break;
-      }
-	  // 9 입력시 on off
-      case 9: {
-        onoff = false;
-        Serial.println(dbg(3, "OFF 모드로 전환됨"));
-        Fold();
-        for (int i = 1; i <= 7; i += 2) {
-          dxl.torqueOff(i);
-          dxl.torqueOff(i + 1);
-        }
-        break;
-      }
-      default:
-        Serial.println(dbg(9, "알 수 없는 헤더 값"));
-        break;
-    }
-  }
-
-  while (!onoff) {
-    if (Serial.available()) {
-      String input = Serial.readStringUntil('\n');
-      input.trim();
-      int header = input.toInt();
-      if (header == 9) {
-        onoff = true;
-        Serial.println(dbg(3, "ON 모드로 전환됨"));
-        break;
-      }
-    }
-    delay(100);
-  }
-
-  if (driving_mode) {
-    if (Transforming) {
-      Transform_to_Wheel();
-      Transforming = false;
-    }
-    Wheel_Mode();
-  } else {
-    if (Transforming) {
-      Transform_to_Leg();
-      Transforming = false;
-    }
-    Leg_Mode();
-  }
+		Leg_Mode();
+	}
 }
+
+void process_command(String input) {
+	if (input.length() == 0) return;
+
+	Serial.println(dbg(1, "수신된 명령: " + input));
+
+	int firstSpace = input.indexOf(' ');
+	int header;
+	String rest;
+
+	if (firstSpace == -1) {
+		header = input.toInt();
+	} else {
+		header = input.substring(0, firstSpace).toInt();
+		rest = input.substring(firstSpace + 1);
+	}
+
+	switch (header) {
+		case 0:
+			Serial.println(dbg(1, "시작 시간 수신: " + rest));
+			break;
+		case 1: {
+			int sep = rest.indexOf(' ');
+			if (sep == -1) {
+				Serial.println(dbg(9, "속도 명령 파싱 오류"));
+				break;
+			}
+			lin = rest.substring(0, sep).toInt();
+			ang = rest.substring(sep + 1).toInt();
+			break;
+		}
+		case 2: {
+			bool prev_mode = driving_mode;
+			int mode_input = rest.length() > 0 ? rest.toInt() : -1;
+			if (mode_input == 1) driving_mode = true;
+			else if (mode_input == 0) driving_mode = false;
+			if (prev_mode != driving_mode) Transforming = true;
+			break;
+		}
+		case 9: {
+			onoff = false;
+			Serial.println(dbg(3, "OFF 모드로 전환됨"));
+			Fold();
+			for (int i = 1; i <= 7; i += 2) {
+				dxl.torqueOff(i);
+				dxl.torqueOff(i + 1);
+			}
+			break;
+		}
+		default:
+			Serial.println(dbg(9, "알 수 없는 헤더 값"));
+			break;
+	}
+}
+
 
 // cmd_vel 값에 따라 바퀴 모터들에 rpm 명령하는 함수
 void Wheel_Mode(){
