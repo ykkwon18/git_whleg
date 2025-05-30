@@ -56,7 +56,7 @@ float A = width/radius;   // L/r (상수)
 
 bool driving_mode = true;                      // True: Wheel, False: Leg
 bool Transforming = false;                     // 변신중: True
-bool onoff = true;
+bool onoff = true;                             // 전원 on off
 
 String dbg(int code, const String& msg) {     // 디버깅 메시지의 헤더 뒤에 보드 넘버 추가하는 함수
   int header = code * 10 + My_OpenRB_Number;  // 앞자리: 메시지 종류, 뒷자리: 보드 번호
@@ -69,6 +69,23 @@ void setup() {
   dxl.setPortProtocolVersion(PROTOCOL_VERSION);
 
   Serial.println(dbg(0, "OpenRB-150 펌웨어 시작됨!"));
+
+  while (true){
+	if (Serial.available()){
+		String input = Serial.readStringUntil('\n');
+		input.trim();
+
+		int firstSpace = input.indexOf(' ');
+		if (firstSpace != -1){
+			int header = input.substring(0, firstSpace).toInt();
+			if (header == 9){
+				Serial.println(dbg(3, "전원 On 명령 수신, 시작됨"));
+				break;
+			}
+		}
+	}
+	delay(100);
+  }
 
   for (int i = 1; i <= 7; i += 2) {
     dxl.torqueOff(i);
@@ -264,7 +281,7 @@ void Transform_to_Wheel(){
 }
 
 // 모터의 포지션을 계산하는 함수
-void computeLegIK(int mode, int i) {
+void computeLegIK(int mode, int i) {   // 구동 모드, 다리 번호
 
 	Parabola(mode);  // compute x,y of Leg 
 	InvKin();       // IK -> theta_H theta_L
