@@ -1,6 +1,3 @@
-// 최종 수정일 25. 06. 03
-// 변환함수 실행 위치를 switch 안에 직접 넣음. ON-OFF 토글 개선.
-
 // 휠-레그 통합 구동 펌웨어. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
 
 // 헤더 정리
@@ -116,18 +113,20 @@ void loop() {
 		}
 	}
 
-	// OFF 상태면 루프 건너뛰기
-	if (!onoff) {
-		// OFF 모드일 때는 아무 동작도 하지 않음
-		delay(100);
-		return;
-	}
+	if (!onoff) return;
 
-	// 구동 함수 호출
 	if (driving_mode) {
-		Wheel_Mode();  // 바퀴 모드
+		if (Transforming) {
+			Transform_to_Wheel();
+			Transforming = false;
+		}
+		Wheel_Mode();
 	} else {
-		Leg_Mode();    // 다리 모드
+		if (Transforming) {
+			Transform_to_Leg();
+			Transforming = false;
+		}
+		Leg_Mode();
 	}
 }
 
@@ -167,48 +166,16 @@ void process_command(String input) {
 			if (mode_input == 1) driving_mode = true;
 			else if (mode_input == 0) driving_mode = false;
 			if (prev_mode != driving_mode) Transforming = true;
-
-			if (driving_mode) {
-				if (Transforming) {
-					Transform_to_Wheel();
-					Transforming = false;
-					delay(1000);
-				}
-			}
-			else {
-				if (Transforming) {
-					Transform_to_Leg();
-					Transforming = false;
-					delay(1000);
-				}
-			}
 			break;
 		}
 		case 9: {
-			onoff = !onoff;           // onoff 토글
-			if (!onoff){              // OFF 모드로 전환
-				Serial.println(dbg(3, "OFF 모드로 전환됨"));
-				Fold();               // 다리 모터를 접음
-				for (int i = 1; i <= 7; i += 2) {
-					dxl.torqueOff(i);
-					dxl.torqueOff(i + 1);
-				}
+			onoff = false;
+			Serial.println(dbg(3, "OFF 모드로 전환됨"));
+			Fold();
+			for (int i = 1; i <= 7; i += 2) {
+				dxl.torqueOff(i);
+				dxl.torqueOff(i + 1);
 			}
-			else {                    // ON 으로 전환
-				Serial.println(dbg(3, "ON 모드로 전환됨"));
-				for(int i = 1; i <= 7; i += 2) {
-					dxl.torqueOn(i);
-					dxl.torqueOn(i + 1);
-					dxl.setOperatingMode(i, OP_VELOCITY);
-					dxl.setOperatingMode(i + 1, OP_POSITION);
-					dxl.torqueOn(i);
-					dxl.torqueOn(i + 1);
-				}
-				Transforming = false;
-				driving_mode = true;  // ON 모드로 전환되면 기본적으로 바퀴 모드로 시작
-			}
-			
-
 			break;
 		}
 		default:
