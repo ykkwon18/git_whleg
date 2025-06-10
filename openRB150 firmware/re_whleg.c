@@ -40,6 +40,11 @@ Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 bool Power_on = false;     // 전원 on/off 상태 변수. true면 전원 on, false면 전원 off
 bool driving_mode = true;  // true면 휠 모드, false면 다리 모드
 
+int velocity = 0;
+int turn_speed = 0;
+int prev_velocity = 0;                        // 이전 속도 저장 변수
+int prev_turn_speed = 0;                      // 이전 조향속도 저장 변수
+
 void setup() {
 	Serial.begin(57600);
 	dxl.begin(57600);
@@ -57,10 +62,6 @@ void setup() {
 void loop() {
 
 	bool vel_command = false;                     // 시리얼에 속도명령이 들어왔는지 체크. loop를 돌면 초기화.
-	int velocity;
-	int turn_speed;
-	int prev_velocity = 0;                        // 이전 속도 저장 변수
-	int prev_turn_speed = 0;                      // 이전 조향속도 저장 변수
 
 	// 시리얼 체크. 버퍼에 통신이 있으면 실행
 	if (Serial.available() > 0) {
@@ -72,10 +73,11 @@ void loop() {
 		// 헤더에 따라 분기
 		switch (header) {
 			// 속도 명령. velocity, turn_speed 변수 갱신. 속도가 바뀌었으면 Command = true.
-			case 1:
+			case 1: {
 				int spaceIndex = body.indexOf(' ');
 				if (spaceIndex == -1) {
 					Serial.println("속도 입력 오류, 1 000 000 형태로 입력하여야 함");
+					Serial_trash();
 					break;
 				}
 				else {
@@ -87,11 +89,15 @@ void loop() {
 						prev_velocity = velocity;
 						prev_turn_speed = turn_speed;
 					}
+					else {
+						Serial.println("속도가 변하지 않음");
+					}
 				}
 				break;
+			}
 
 			// 모드 명령. body 에 따라 모드 변경 함수 실행.
-			case 2:
+			case 2: {
 				if (body == "1") {
 					Serial.println("휠 모드로 전환");
 					Leg_to_Wheel(); // 다리 모드에서 휠 모드로 전환 함수 실행
@@ -108,13 +114,15 @@ void loop() {
 
 				Serial_trash(); // 시리얼 버퍼 비우기
 				break;
+			}
 
 			// 전원 명령
-			case 9:
+			case 9: {
 				Power_wait();     // 전원 대기 함수 실행
 				Power_on = true;  // 전원 on 상태로 변경
 				Serial.println("전원 입력 확인, loop 재시작");
 				break;
+			}
 
 			default:
 				Serial.println("시리얼 입력 오류\n");
@@ -135,9 +143,11 @@ void loop() {
 		Serial.print(", 조향속도: ");
 		Serial.println(turn_speed);
 		Serial.println("\n");
+		vel_command = false;
 	}
 	if (driving_mode == false) {
 		Leg_mode(); // 다리 모드 구동 함수 실행 (Test용)
+		delay(1000);
 	}
 
 	delay(50);
@@ -169,6 +179,7 @@ void Wheel_mode(float velocity, float turn_speed) { // 소수점 절삭 방지. 
 
 void Leg_mode() {
 	Serial.println("다리 모드 구동 함수 실행");
+	delay(1000);
 }
 
 //---------------------------------휠<->다리 전환 함수-------------------------------------
@@ -211,11 +222,12 @@ int What_is_header(String String_serial_input, String& body_return) {
 
 // 전원 꺼짐. 시리얼 9 입력 대기중 | 9 입력 -> Power_on = true, 버퍼 비우기
 void Power_wait() {
+	Serial.println("대기모드... 전원입력 대기중.\n");
 	while(true) {
 			if (Serial.available() > 0) {
 				String String_serial_input = Serial.readStringUntil('\n');   // 버퍼에 쌓여있는 데이터를 \n 단위로, String 형으로 읽어옴
-
-				String serial_line = String_serial_input.trim();      // \n 절삭
+				String_serial_input.trim();                                   // 앞뒤 공백 제거
+				String serial_line = String_serial_input;      // \n 절삭
 				int Int_serial_input = serial_line.toInt();           // int형으로 전환
 				
 				if (Int_serial_input == 9) {
