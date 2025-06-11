@@ -1,4 +1,6 @@
 // 휠-레그 통합 구동 펌웨어. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
+// 모터 정방향 역방향 확인해야 함.
+// 변형 동작 잘 수행하는 지 확인 필요.
 
 // 헤더 정리
 // 0 0000             0 시간
@@ -40,8 +42,8 @@ Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 bool Power_on = false;     // 전원 on/off 상태 변수. true면 전원 on, false면 전원 off
 bool driving_mode = true;  // true면 휠 모드, false면 다리 모드
 
-int velocity = 0;
-int turn_speed = 0;
+int velocity = 0;                             // 전진 속도 변수
+int turn_speed = 0;                           // 조향 속도 변수
 int prev_velocity = 0;                        // 이전 속도 저장 변수
 int prev_turn_speed = 0;                      // 이전 조향속도 저장 변수
 
@@ -50,12 +52,16 @@ void setup() {
 	dxl.begin(57600);
 	dxl.setPortProtocolVersion(PROTOCOL_VERSION);
 
-	Serial.println("OpenRB-150 setup 시작됨!");
+	Serial.println("OpenRB-150 setup 시작됨!\n");
 	
 	Power_wait();   // 9 입력까지 대기
+
+	Torque_off();  // 모든 모터 토크 끄기
+	Set_zero(); // 모터 위치 초기화, 속도 모드로 설정
+	delay(1000);
 	
 	Serial.println("전원 입력 확인, setup 종료");
-	Serial.println("loop 실행");
+	Serial.println("loop 실행\n");
 	Serial_trash();
 }
 
@@ -76,7 +82,7 @@ void loop() {
 			case 1: {
 				int spaceIndex = body.indexOf(' ');
 				if (spaceIndex == -1) {
-					Serial.println("속도 입력 오류, 1 000 000 형태로 입력하여야 함");
+					Serial.println("속도 입력 오류, 1 000 000 형태로 입력하여야 함\n");
 					Serial_trash();
 					break;
 				}
@@ -90,7 +96,7 @@ void loop() {
 						prev_turn_speed = turn_speed;
 					}
 					else {
-						Serial.println("속도가 변하지 않음");
+						Serial.println("속도가 변하지 않음\n");
 					}
 				}
 				break;
@@ -125,10 +131,10 @@ void loop() {
 			}
 
 			default:
-				Serial.println("시리얼 입력 오류\n");
-				Serial.println("1 0000 0000 : 속도 명령 (전진속도, 조향속도)\n");
-				Serial.println("2 0 : 다리 모드\n");
-				Serial.println("2 1 : 휠 모드\n");
+				Serial.println("시리얼 입력 오류");
+				Serial.println("1 0000 0000 : 속도 명령 (전진속도, 조향속도)");
+				Serial.println("2 0 : 다리 모드");
+				Serial.println("2 1 : 휠 모드");
 				Serial.println("9 : 전원 on/off\n");
 				break;
 		}
@@ -186,15 +192,19 @@ void Leg_mode() {
 
 void Wheel_to_Leg() {
 	Serial.println("휠->다리 변형함수 실행");
-	delay(3000);    // 가상 변환 시간
-	Serial.println("다리 모드로 전환됨");
+	Stop(); // 모든 모터 정지
+	Erection(); // 포지션 모드로 변경, 다리 직립 초기화
+
+	Serial.println("다리 모드로 전환됨\n");
 	Serial_trash(); // 시리얼 버퍼 비우기
 }
 
 void Leg_to_Wheel() {
 	Serial.println("다리->휠 변형함수 실행");
-	delay(3000);    // 가상 변환 시간
-	Serial.println("휠 모드로 전환됨");
+	
+	Set_zero(); // 모터 위치 초기화, 속도 모드로 설정
+
+	Serial.println("휠 모드로 전환됨\n");
 	Serial_trash(); // 시리얼 버퍼 비우기
 }
 
@@ -246,3 +256,98 @@ void Serial_trash() {
 		Serial.read();
 	}
 }
+
+//---------------------------------- 모터 토크 온 오프 / 모터 모드 설정-----------------------------------
+
+// 모든 모터 토크 켜기
+void Torque_on() {
+	for(int i = 1; i <= 7; i += 2) {
+		dxl.torqueOn(i);
+		dxl.torqueOn(i + 1);
+		Serial.println("모터 ID: " + String(i) + " 토크 온\n");
+	}
+	delay(500);
+}
+
+// 모든 모터 토크 끄기
+void Torque_off() {
+	for(int i = 1; i <= 7; i += 2) {
+		dxl.torqueOff(i);
+		dxl.torqueOff(i + 1);
+		Serial.println("모터 ID: " + String(i) + " 토크 오프\n");
+	}
+	delay(500);
+}
+
+// 홀수 모터는 속도 모드, 짝수 모터는 위치 모드
+void Set_vel_mode() {
+	for (int i = 1; i <= 7; i += 2) {
+		dxl.setOperatingMode(i, OP_VELOCITY); // 홀수 모터는 속도 모드
+		dxl.setOperatingMode(i + 1, OP_POSITION); // 짝수 모터는 위치 모드
+		Serial.println("모터 ID: " + String(i) + " 속도 모드로 설정됨");
+	}
+	delay(500);
+}
+
+// 모든 모터 위치 모드
+void Set_pos_mode() {
+	for (int i = 1; i <= 7; i += 2) {
+		dxl.setOperatingMode(i, OP_POSITION); // 홀수 모터는 위치 모드
+		dxl.setOperatingMode(i + 1, OP_POSITION); // 짝수 모터도 위치 모드
+		Serial.println("모터 ID: " + String(i) + " 위치 모드로 설정됨");
+	}
+	delay(500);
+}
+
+//-------------------------------모터 위치 초기화, 속도 모드로 / 기립-----------------------------
+
+// 모터 위치 초기화 후 속도 모드로 설정
+void Set_zero() {
+	Serial.println("모터 위치 초기화 시작. 잠시 기다려주세요...");
+	Set_pos_mode(); // 모든 모터 위치 모드로 설정
+	Torque_on(); // 모든 모터 토크 켜기
+
+	for (int i = 1; i <= 8; i += 1) {
+		if (i == 1 ||i == 2 || i == 6 || i == 7) { // 1,2,6,7은 역방향 모터
+			dxl.setGoalPosition(i, 0);
+		}
+		else {
+			dxl.setGoalPosition(i, 4095); // 나머지 모터는 정방향
+		}
+	}
+	delay(500);
+
+	Torque_off(); // 모든 모터 토크 끄기
+	Set_vel_mode(); // 모든 모터 속도 모드로 설정
+	Torque_on(); // 모든 모터 토크 켜기
+	Serial_trash(); // 시리얼 버퍼 비우기
+	Serial.println("모터 위치 초기화 완료, 속도 모드로 설정됨\n");
+}
+
+void Erection() {
+	// 다리 위치를 직립 초기화하는 함수
+	Serial.println("다리 직립 초기화 시작, 잠시 기다려주세요...");
+	
+	Torque_off(); // 모든 모터 토크 끄기
+	Set_pos_mode(); // 모든 모터 위치 모드로 설정
+	Torque_on(); // 모든 모터 토크 켜기
+
+	for (int i = 1; i <= 8; i += 1) {
+		dxl.setGoalPosition(i, 2048);
+	}
+	delay(2000);
+
+	Serial_trash(); // 시리얼 버퍼 비우기
+	Serial.println("다리 직립 초기화 완료\n");
+}
+
+void Stop() {
+	for (int i = 1; i <= 8; i += 1) {
+		dxl.setGoalVelocity(i, 0, UNIT_RPM); // 모든 모터 속도 0으로 설정
+	}
+	Serial.println("모든 모터 정지");
+	Serial_trash(); // 시리얼 버퍼 비우기
+	delay(500);
+}
+
+// --------------------------------------------------------------------------------------
