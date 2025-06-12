@@ -264,8 +264,9 @@ void Torque_on() {
 	for(int i = 1; i <= 7; i += 2) {
 		dxl.torqueOn(i);
 		dxl.torqueOn(i + 1);
-		Serial.println("모터 ID: " + String(i) + " 토크 온\n");
+		Serial.println("모터 ID: " + String(i) + " 토크 온");
 	}
+	Serial.println("\n");
 	delay(500);
 }
 
@@ -274,8 +275,9 @@ void Torque_off() {
 	for(int i = 1; i <= 7; i += 2) {
 		dxl.torqueOff(i);
 		dxl.torqueOff(i + 1);
-		Serial.println("모터 ID: " + String(i) + " 토크 오프\n");
+		Serial.println("모터 ID: " + String(i) + " 토크 오프");
 	}
+	Serial.println("\n");
 	delay(500);
 }
 
@@ -286,6 +288,7 @@ void Set_vel_mode() {
 		dxl.setOperatingMode(i + 1, OP_POSITION); // 짝수 모터는 위치 모드
 		Serial.println("모터 ID: " + String(i) + " 속도 모드로 설정됨");
 	}
+	Serial.println("\n");
 	delay(500);
 }
 
@@ -296,6 +299,7 @@ void Set_pos_mode() {
 		dxl.setOperatingMode(i + 1, OP_POSITION); // 짝수 모터도 위치 모드
 		Serial.println("모터 ID: " + String(i) + " 위치 모드로 설정됨");
 	}
+	Serial.println("\n");
 	delay(500);
 }
 
