@@ -1,7 +1,4 @@
 // 휠-레그 통합 구동 펌웨어. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
-// 모터 정방향 역방향 확인해야 함. // 아직 안함
-// 변형 동작 잘 수행하는 지 확인 필요. -> 되긴 되는 듯?
-// 포지션 관련 변수들은 모두 +-를 체크해서 조정해야 함.
 
 // 헤더 정리
 // 0 0000             0 시간
@@ -16,16 +13,9 @@
 // 모터 ID는 1~8로, 홀수 번은 다리 번호와 같으며, 짝수 번은 다리 번호 + 1이다.       예를 들어, 1번 다리의 모터 ID는 1, 2번 다리의 모터 ID는 3이다.
 // 다리 번호를 i로 지정하고, 다리당 2개의 모터를 동시 구동할 것이므로, 모터 ID i와 i+1을 지정하여 작동시키면 된다.
 
-//  *2*     *1*         3        4          정방향
-//  접-      앞-        앞+       접+          앞+
-//  8       *7*         5       *6*          접힘+
-//  접+      앞-        앞+       접-
-
-// mode는 다리의 움직임을 결정하는 변수이다.
-// mode = 0 : 직선으로 뒤로 이동.                       ||  x= 0.06 -> 0.0     y = 0.08
-// mode = 1 : 포물선으로 앞으로 이동.                    ||  x= -0.06 -> 0.06   y = 50/9*x^2 + 0.06
-// mode = 2 : 왼쪽 다리를 앞으로 보내기 위한 초기 움직임.   || x= 0.0 -> 0.06      y = 200/9*(x^2-0.06*x+0.03^2) + 0.06
-// x는 t에 대한 매개변수로, t step 한 번당 한 mode씩 작동한다.
+// 속도모드 3 5 역방향
+// 위치모드 12 78 역방향
+// 위치모드 34 56 정방향
 
 // 링크1 길이 = 35mm
 // 링크2 길이 = 85mm
@@ -38,9 +28,12 @@
 
 const float PROTOCOL_VERSION = 2.0;
 
-const float Hip_Back = -30.0;     // 다리를 뒤로 (힙 뒤로)
-const float Knee_Front = -15.0;   // 다리를 앞으로 (무릎 접기)
-const float Hip_Front = 30.0;     // 다리를 앞으로 (힙 앞으로)
+const float Hip_Back = -36.0;     // 다리를 뒤로 (힙 뒤로)
+const float Knee_Front = -18.0;   // 다리를 앞으로 (무릎 접기)
+const float Hip_Front = 54.0;     // 다리를 앞으로 (힙 앞으로)
+const float Hip_Back_rear = -54.0;     // 다리를 뒤로 (힙 뒤로)
+const float Knee_Front_rear = -18.0;   // 다리를 앞으로 (무릎 접기)
+const float Hip_Front_rear = 36.0;     // 다리를 앞으로 (힙 앞으로)
 
 const float LIMIT_ACCELERATION = 20.0; // 포지션 모드 가속도 제한
 const float LIMIT_VELOCITY = 200.0;    // 포지션 모드 속도 제한
@@ -49,7 +42,7 @@ Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 
 bool Power_on = false;     // 전원 on/off 상태 변수. true면 전원 on, false면 전원 off
 bool driving_mode = true;  // true면 휠 모드, false면 다리 모드
-bool Leg_Left = true;
+bool Leg_Left = true;      // 왼발이 앞에 있으면 ture
 
 int velocity = 0;                             // 전진 속도 변수
 int turn_speed = 0;                           // 조향 속도 변수
@@ -205,23 +198,23 @@ void Leg_mode() {
 			Serial.println("오른발 앞으로\n");
 			for (int i=1; i<=7; i+=2) {
 				if (i==1) {         // 왼발을 뒤로 (1은 역방향)
-					dxl.setGoalPosition(i, -Hip_Back, UNIT_DEGREE);
+					dxl.setGoalPosition(i, -Hip_Back +180.0, UNIT_DEGREE);
 				}
 				else if (i==5) {
-					dxl.setGoalPosition(i, Hip_Back, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Back_rear +180.0, UNIT_DEGREE);
 				}
 				else if (i==3) {    // 오른발을 앞으로 (78은 역방향)
-					dxl.setGoalPosition(i+1, Knee_Front, UNIT_DEGREE);
-					dxl.setGoalPosition(i, Hip_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i+1, Knee_Front +180.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Front +180.0, UNIT_DEGREE);
 				}
-				else {                         // i=7
-					dxl.setGoalPosition(i+1, -Knee_Front, UNIT_DEGREE);
-					dxl.setGoalPosition(i, -Hip_Front, UNIT_DEGREE);
+				else {// i=7
+					dxl.setGoalPosition(i+1, -Knee_Front_rear +180.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, -Hip_Front_rear +180.0, UNIT_DEGREE);
 				}
 			}
 			delay(600);
-			dxl.setGoalPosition(4, 0, UNIT_DEGREE); // 오른다리 무릎 펴기
-			dxl.setGoalPosition(8, 0, UNIT_DEGREE);
+			dxl.setGoalPosition(4, 0 +180.0, UNIT_DEGREE); // 오른다리 무릎 펴기
+			dxl.setGoalPosition(8, 0 +180.0, UNIT_DEGREE);
 			delay(900);
 			Leg_Left = false;
 		}
@@ -229,23 +222,23 @@ void Leg_mode() {
 			Serial.println("왼발 앞으로\n");
 			for (int i=1; i<=7; i+=2) {
 				if (i==1) { // 왼발을 앞으로
-					dxl.setGoalPosition(i+1, -Knee_Front, UNIT_DEGREE);
-					dxl.setGoalPosition(i, -Hip_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i+1, -Knee_Front +180.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, -Hip_Front +180.0, UNIT_DEGREE);
 				}
 				else if (i==5) {
-					dxl.setGoalPosition(i+1, Knee_Front, UNIT_DEGREE);
-					dxl.setGoalPosition(i, Hip_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i+1, Knee_Front_rear +180.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Front_rear +180.0, UNIT_DEGREE);
 				}
 				else if (i==3) { // 오른발을 뒤로 (3은 정방향)
-					dxl.setGoalPosition(i, Hip_Back, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Back +180.0, UNIT_DEGREE);
 				}
-				else {              // i=7
-					dxl.setGoalPosition(i, -Hip_Back, UNIT_DEGREE);
+				else {// i=7
+					dxl.setGoalPosition(i, -Hip_Back_rear +180.0, UNIT_DEGREE);
 				}
 			}
 			delay(600);
-			dxl.setGoalPosition(2, 0, UNIT_DEGREE); // 왼다리 무릎 펴기
-			dxl.setGoalPosition(6, 0, UNIT_DEGREE);
+			dxl.setGoalPosition(2, 0 +180.0, UNIT_DEGREE); // 왼다리 무릎 펴기
+			dxl.setGoalPosition(6, 0 +180.0, UNIT_DEGREE);
 			delay(900);
 			Leg_Left = true;
 		}
@@ -261,10 +254,10 @@ void Wheel_to_Leg() {
 
 	for (int i=1; i<=7; i+=2) {  // 왼 발을 앞으로
 		if (i==1 || i==5) {
-			dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i, Hip_Front +180.0, UNIT_DEGREE);
 		}
 		else {
-			dxl.setGoalPosition(i, -30.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i, Hip_Back +180.0, UNIT_DEGREE);
 		}
 	}
 	Leg_Left = true; // 왼발이 앞에 있음 인덱스
@@ -383,8 +376,8 @@ void Set_pos_mode() {
 // 속도 제한, 가속도 제한 / RAM 영역이라 토크 껐다키면 초기화됨.
 void Set_motor_limit() {
 	for (int i=1; i<=8; i += 1) {
-		dxl.writeControlTableItem(PROFILE_ACCELERATION, i, LIMIT_ACCELERATION);  // 가속도 제한
-		dxl.writeControlTableItem(PROFILE_VELOCITY, i, LIMIT_VELOCITY);     // 속도 제한
+		dxl.writeControlTableItem(ControlTableItem::PROFILE_ACCELERATION, i, LIMIT_ACCELERATION);  // 가속도 제한
+		dxl.writeControlTableItem(ControlTableItem::PROFILE_VELOCITY, i, LIMIT_VELOCITY);     // 속도 제한
 	}
 }
 
@@ -395,16 +388,27 @@ void Set_zero() {
 	Serial.println("모터 위치 초기화 시작. 잠시 기다려주세요...");
 	Set_pos_mode(); // 모든 모터 위치 모드로 설정
 	Torque_on(); // 모든 모터 토크 켜기
+	float setzero = -180.0;
 
-	for (int i = 1; i <= 8; i += 1) {
-		if (i == 1 ||i == 2 || i == 6 || i == 7) { // 1,2,6,7은 역방향 모터
-			dxl.setGoalPosition(i, 0);
+	for (int i = 1; i <= 7; i += 2) {
+		if (i==1) { // 1,2,7,8은 역방향 모터
+			dxl.setGoalPosition(i, 0.0 +180.0, UNIT_DEGREE); // Hip
+			dxl.setGoalPosition(i+1, -setzero +180.0, UNIT_DEGREE);   // Knee
 		}
-		else {
-			dxl.setGoalPosition(i, 4095); // 나머지 모터는 정방향
+		else if (i==7) {
+			dxl.setGoalPosition(i, 0.0 +180.0, UNIT_DEGREE); // Hip
+			dxl.setGoalPosition(i+1, setzero +180.0, UNIT_DEGREE);   // Knee
+		}
+		else if (i==3) {
+			dxl.setGoalPosition(i, 0.0 +180.0, UNIT_DEGREE);    // Hip
+			dxl.setGoalPosition(i+1, setzero +180.0, UNIT_DEGREE);    // Knee
+		}
+		else { // i==5
+			dxl.setGoalPosition(i, 0.0 +180.0, UNIT_DEGREE);    // Hip
+			dxl.setGoalPosition(i+1, -setzero +180.0, UNIT_DEGREE);    // Knee
 		}
 	}
-	delay(500);
+	delay(4000);
 
 	Torque_off(); // 모든 모터 토크 끄기
 	Set_vel_mode(); // 모든 모터 속도 모드로 설정
@@ -421,8 +425,9 @@ void Erection() {
 	Set_pos_mode(); // 모든 모터 위치 모드로 설정
 	Torque_on(); // 모든 모터 토크 켜기
 
-	for (int i = 1; i <= 8; i += 1) {
-		dxl.setGoalPosition(i, 2048);
+	for (int i = 1; i <= 7; i += 2) {
+		dxl.setGoalPosition(i, 0.0 +180.0, UNIT_DEGREE);
+		dxl.setGoalPosition(i+1, 0.0 +180.0, UNIT_DEGREE);
 	}
 	delay(2000);
 
