@@ -1,12 +1,13 @@
 // 휠-레그 통합 구동 펌웨어. 다이나믹셀 총 8개, 4개의 다리에 각각 2개씩 장착되어 있다.
-// 모터 정방향 역방향 확인해야 함.
-// 변형 동작 잘 수행하는 지 확인 필요.
+// 모터 정방향 역방향 확인해야 함. // 아직 안함
+// 변형 동작 잘 수행하는 지 확인 필요. -> 되긴 되는 듯?
+// 포지션 관련 변수들은 모두 +-를 체크해서 조정해야 함.
 
 // 헤더 정리
 // 0 0000             0 시간
 // 1 0000 0000        1 전진속도 조향속도
 // 2 1                휠 모드
-// 2 0                다리 모드
+// 2 0                다리 모드  - 초기화 자세는 왼발이 앞으로 간다
 // 9 전원 on off
 
 // i는 다리 번호를 의미한다.
@@ -41,6 +42,7 @@ Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 
 bool Power_on = false;     // 전원 on/off 상태 변수. true면 전원 on, false면 전원 off
 bool driving_mode = true;  // true면 휠 모드, false면 다리 모드
+bool Leg_Left = true;
 
 int velocity = 0;                             // 전진 속도 변수
 int turn_speed = 0;                           // 조향 속도 변수
@@ -183,8 +185,48 @@ void Wheel_mode(float velocity, float turn_speed) { // 소수점 절삭 방지. 
 	Serial.println("휠 모드 구동 완료\n");
 }
 
+// 각 모터 위치  1 3
+//             7 5
+// 한 사이클 당 1.5초
+// 뒷다리: 무릎 접기 - 힙 앞으로 회전 0.6초
+// 앞다리: 뒤로 서서히 회전 1.5초
+// 뒷다리: 무릎 펴기 0.9초
 void Leg_mode() {
-	Serial.println("다리 모드 구동 함수 실행");
+	Serial.println("다리 모드 구동 함수 실행... 다리모드 구동 중에는 입력을 한 번씩만 해주세요.");
+		if (Leg_Left) { // 왼발이 앞에 있음
+			Serial.println("오른발 앞으로\n");
+			for (int i=1; i<=7; i+=2) {
+				if (i==1 || i==5) { // 왼발을 뒤로
+					dxl.setGoalPostion(i, -30.0, UNIT_DEGREE);
+				}
+				else {              // 오른발을 앞으로
+					dxl.setGoalPosition(i+1, 15.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
+				}
+			}
+			delay(600);
+			dxl.setGoalPosition(4, 0, UNIT_DEGREE); // 오른다리 무릎 펴기
+			dxl.setGoalPosition(8, 0, UNIT_DEGREE);
+			delay(900);
+			Leg_Left = false;
+		}
+		else {         // 오른발이 앞에 있음
+			Serial.println("왼발 앞으로\n")
+			for (int i=1; i<=7; i+=2) {
+				if (i==1 || i==5) { // 왼발을 앞으로
+					dxl.setGoalPosition(i+1, 15.0, UNIT_DEGREE);
+					dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
+				}  
+				else {              // 오른발을 뒤로
+					dxl.setGoalPostion(i, -30.0, UNIT_DEGREE);
+				}
+			}
+			delay(600);
+			dxl.setGoalPosition(2, 0, UNIT_DEGREE); // 왼다리 무릎 펴기
+			dxl.setGoalPosition(6, 0, UNIT_DEGREE);
+			delay(900);
+			Leg_Left = true;
+		}
 	delay(1000);
 }
 
@@ -195,7 +237,19 @@ void Wheel_to_Leg() {
 	Stop(); // 모든 모터 정지
 	Erection(); // 포지션 모드로 변경, 다리 직립 초기화
 
+	for (int i=1; i<=7; i+=2) {  // 왼 발을 앞으로
+		if (i==1 || i==5) {
+			dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
+		}
+		else {
+			dxl.setGoalPosition(i, -30.0, UNIT_DEGREE);
+		}
+	}
+	Leg_Left = true; // 왼발이 앞에 있음 인덱스
+	Serial.println("왼발을 앞으로");
+
 	Serial.println("다리 모드로 전환됨\n");
+	delay(500);
 	Serial_trash(); // 시리얼 버퍼 비우기
 }
 
@@ -257,7 +311,7 @@ void Serial_trash() {
 	}
 }
 
-//---------------------------------- 모터 토크 온 오프 / 모터 모드 설정-----------------------------------
+//--------------------------- 모터 토크 온 오프 / 모터 모드 설정 / 모터 속도가속도 제한-----------------------------
 
 // 모든 모터 토크 켜기
 void Torque_on() {
@@ -301,6 +355,15 @@ void Set_pos_mode() {
 	}
 	Serial.println("\n");
 	delay(500);
+	Set_motor_limit();  // 속도 가속도 제한
+}
+
+// 속도 제한, 가속도 제한 / RAM 영역이라 토크 껐다키면 초기화됨.
+void Set_motor_limit() {
+	for (int i=1; i<=8; i += 1) {
+		dxl.writeControlTableItem(PROFILE_ACCELERATION, i, 20);  // 가속도 제한
+		dxl.writeControlTableItem(PROFILE_VELOCITY, i, 200);     // 속도 제한
+	}
 }
 
 //-------------------------------모터 위치 초기화, 속도 모드로 / 기립-----------------------------
