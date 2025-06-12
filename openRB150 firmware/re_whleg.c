@@ -38,6 +38,13 @@
 
 const float PROTOCOL_VERSION = 2.0;
 
+const float Hip_Back = -30.0;     // 다리를 뒤로 (힙 뒤로)
+const float Knee_Front = -15.0;   // 다리를 앞으로 (무릎 접기)
+const float Hip_Front = 30.0;     // 다리를 앞으로 (힙 앞으로)
+
+const float LIMIT_ACCELERATION = 20.0; // 포지션 모드 가속도 제한
+const float LIMIT_VELOCITY = 200.0;    // 포지션 모드 속도 제한
+
 Dynamixel2Arduino dxl(DXL_SERIAL, 57600);
 
 bool Power_on = false;     // 전원 on/off 상태 변수. true면 전원 on, false면 전원 off
@@ -191,17 +198,25 @@ void Wheel_mode(float velocity, float turn_speed) { // 소수점 절삭 방지. 
 // 뒷다리: 무릎 접기 - 힙 앞으로 회전 0.6초
 // 앞다리: 뒤로 서서히 회전 1.5초
 // 뒷다리: 무릎 펴기 0.9초
+// 모든 관절이 앞으로 휘어지는 방향을 기준으로, 1278은 역방향, 3456은 정방향.
 void Leg_mode() {
 	Serial.println("다리 모드 구동 함수 실행... 다리모드 구동 중에는 입력을 한 번씩만 해주세요.");
 		if (Leg_Left) { // 왼발이 앞에 있음
 			Serial.println("오른발 앞으로\n");
 			for (int i=1; i<=7; i+=2) {
-				if (i==1 || i==5) { // 왼발을 뒤로
-					dxl.setGoalPostion(i, -30.0, UNIT_DEGREE);
+				if (i==1) {         // 왼발을 뒤로 (1은 역방향)
+					dxl.setGoalPosition(i, -Hip_Back, UNIT_DEGREE);
 				}
-				else {              // 오른발을 앞으로
-					dxl.setGoalPosition(i+1, 15.0, UNIT_DEGREE);
-					dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
+				else if (i==5) {
+					dxl.setGoalPosition(i, Hip_Back, UNIT_DEGREE);
+				}
+				else if (i==3) {    // 오른발을 앞으로 (78은 역방향)
+					dxl.setGoalPosition(i+1, Knee_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Front, UNIT_DEGREE);
+				}
+				else {                         // i=7
+					dxl.setGoalPosition(i+1, -Knee_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i, -Hip_Front, UNIT_DEGREE);
 				}
 			}
 			delay(600);
@@ -211,14 +226,21 @@ void Leg_mode() {
 			Leg_Left = false;
 		}
 		else {         // 오른발이 앞에 있음
-			Serial.println("왼발 앞으로\n")
+			Serial.println("왼발 앞으로\n");
 			for (int i=1; i<=7; i+=2) {
-				if (i==1 || i==5) { // 왼발을 앞으로
-					dxl.setGoalPosition(i+1, 15.0, UNIT_DEGREE);
-					dxl.setGoalPosition(i, 30.0, UNIT_DEGREE);
-				}  
-				else {              // 오른발을 뒤로
-					dxl.setGoalPostion(i, -30.0, UNIT_DEGREE);
+				if (i==1) { // 왼발을 앞으로
+					dxl.setGoalPosition(i+1, -Knee_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i, -Hip_Front, UNIT_DEGREE);
+				}
+				else if (i==5) {
+					dxl.setGoalPosition(i+1, Knee_Front, UNIT_DEGREE);
+					dxl.setGoalPosition(i, Hip_Front, UNIT_DEGREE);
+				}
+				else if (i==3) { // 오른발을 뒤로 (3은 정방향)
+					dxl.setGoalPosition(i, Hip_Back, UNIT_DEGREE);
+				}
+				else {              // i=7
+					dxl.setGoalPosition(i, -Hip_Back, UNIT_DEGREE);
 				}
 			}
 			delay(600);
@@ -361,8 +383,8 @@ void Set_pos_mode() {
 // 속도 제한, 가속도 제한 / RAM 영역이라 토크 껐다키면 초기화됨.
 void Set_motor_limit() {
 	for (int i=1; i<=8; i += 1) {
-		dxl.writeControlTableItem(PROFILE_ACCELERATION, i, 20);  // 가속도 제한
-		dxl.writeControlTableItem(PROFILE_VELOCITY, i, 200);     // 속도 제한
+		dxl.writeControlTableItem(PROFILE_ACCELERATION, i, LIMIT_ACCELERATION);  // 가속도 제한
+		dxl.writeControlTableItem(PROFILE_VELOCITY, i, LIMIT_VELOCITY);     // 속도 제한
 	}
 }
 
