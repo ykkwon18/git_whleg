@@ -109,8 +109,10 @@ class BringupNode(Node):
 			try:
 				#ser.write(cmd_velocity)
 				#ser.write(cmd_mode)
+				pass
 			except serial.SerialException as e:
 				#self.get_logger().error(f"📛 전송 오류: {e}")
+				pass
 
 		#self.get_logger().info(f"📤 속도 전송: {cmd_velocity.decode().strip()}")
 		#self.get_logger().info(f"📤 모드 전송: {cmd_mode.decode().strip()}")
