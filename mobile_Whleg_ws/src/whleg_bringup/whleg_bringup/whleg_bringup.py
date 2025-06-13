@@ -1,5 +1,5 @@
-#최종 수정일 - 2025.05.22
-#4축 실제 구동을 위한 코드
+# 최종 수정일 - 2025.05.22
+# 4축 실제 구동을 위한 코드
 
 import rclpy
 from rclpy.node import Node
@@ -21,7 +21,6 @@ class BringupNode(Node):
 
 		self.time_publisher = self.create_publisher(Int32, '/time', 10)                               # /time 퍼블리시
 		self.create_timer(1.0, self.publish_time)
-		self.create_subscription(Int32, '/power', self.power_callback, 10)
 
 		port_list = ['/dev/OpenRB150_1', '/dev/OpenRB150_3', '/dev/OpenRB150_5', '/dev/OpenRB150_7']  # 사전에 정의된 포트 이름. 우분투의 포트 설정파일은 깃허브에 있음.
 		self.serial_ports = []
@@ -52,7 +51,6 @@ class BringupNode(Node):
 		self.sent_initial_time = False
 		self.current_power = 1
 		self.current_mode = "Wheel"  # 기본 모드
-		self.current_power = 1       # 기본 전원 상태 (1: on)
 
 	# /time 퍼블리시 함수
 	def publish_time(self):
@@ -66,10 +64,23 @@ class BringupNode(Node):
 		if msg.data in ["Wheel", "Leg"]:
 			self.current_mode = msg.data
 			self.get_logger().info(f"🧭 주행 모드 변경: {self.current_mode}")
+
+			# 모드 변경 시 바로 시리얼 전송
+			mode_value = 1 if self.current_mode == "Wheel" else 0
+			cmd_mode = f"2 {mode_value}\n".encode('utf-8')
+
+			for ser in self.serial_ports:
+				try:
+					ser.write(cmd_mode)
+				except serial.SerialException as e:
+					self.get_logger().error(f"📛 모드 전송 오류 (driving_mode_callback): {e}")
+
+			self.get_logger().info(f"📤 모드 전송 (driving_mode_callback): {cmd_mode.decode().strip()}")
+
 		else:
 			self.get_logger().warn(f"⚠️ 잘못된 모드 수신: '{msg.data}'")
 
-		# /power 콜백
+	# /power 콜백
 	def power_callback(self, msg: Int32):
 		if msg.data != self.current_power:
 			self.current_power = msg.data
@@ -109,7 +120,6 @@ class BringupNode(Node):
 			try:
 				ser.write(cmd_velocity)
 				ser.write(cmd_mode)
-				
 			except serial.SerialException as e:
 				self.get_logger().error(f"📛 전송 오류: {e}")
 
@@ -159,3 +169,4 @@ def main(args=None):
 
 if __name__ == '__main__':
 	main()
+
