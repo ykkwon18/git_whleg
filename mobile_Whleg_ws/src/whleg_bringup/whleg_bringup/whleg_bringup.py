@@ -73,19 +73,7 @@ class BringupNode(Node):
 	def power_callback(self, msg: Int32):
 		if msg.data != self.current_power:
 			self.current_power = msg.data
-			cmd_power = f"9 {self.current_power}\n".encode('utf-8')  # 메시지 통일: 9
-			for ser in self.serial_ports:
-				try:
-					ser.write(cmd_power)
-				except serial.SerialException as e:
-					self.get_logger().error(f"⚡ 전원 전송 오류: {e}")
-			self.get_logger().info(f"🔌 전원 상태 전송: {cmd_power.decode().strip()}")
-
-	# /power 퍼블리시 함수
-	def power_callback(self, msg: Int32):
-		if msg.data != self.current_power:
-			self.current_power = msg.data
-			cmd_power = f"9 {self.current_power}".encode('utf-8')
+			cmd_power = f"9\n".encode('utf-8')  # 메시지 통일: 9
 			for ser in self.serial_ports:
 				try:
 					ser.write(cmd_power)
@@ -119,13 +107,13 @@ class BringupNode(Node):
 
 		for ser in self.serial_ports:
 			try:
-				ser.write(cmd_velocity)
-				ser.write(cmd_mode)
+				#ser.write(cmd_velocity)
+				#ser.write(cmd_mode)
 			except serial.SerialException as e:
-				self.get_logger().error(f"📛 전송 오류: {e}")
+				#self.get_logger().error(f"📛 전송 오류: {e}")
 
-		self.get_logger().info(f"📤 속도 전송: {cmd_velocity.decode().strip()}")
-		self.get_logger().info(f"📤 모드 전송: {cmd_mode.decode().strip()}")
+		#self.get_logger().info(f"📤 속도 전송: {cmd_velocity.decode().strip()}")
+		#self.get_logger().info(f"📤 모드 전송: {cmd_mode.decode().strip()}")
 
 	# 노드 종료시 속도 0 명령을 보냄
 	def send_stop_command(self):
