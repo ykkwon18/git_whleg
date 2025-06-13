@@ -388,6 +388,30 @@ void Set_zero() {
 	Serial.println("모터 위치 초기화 시작. 잠시 기다려주세요...");
 	Set_pos_mode(); // 모든 모터 위치 모드로 설정
 	Torque_on(); // 모든 모터 토크 켜기
+
+	float trans_hip = 100.0;
+	float trans_knee = -90.0;
+
+	for (int i=1; i<=7; i+=2) {
+		if (i==1) {
+			dxl.setGoalPosition(i, -trans_hip +180.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i+1, -trans_knee +180.0, UNIT_DEGREE);
+		}
+		else if (i==7) {
+			dxl.setGoalPosition(i, trans_hip +180.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i+1, trans_knee +180.0, UNIT_DEGREE);
+		}
+		else if (i==3) {
+			dxl.setGoalPosition(i, trans_hip +180.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i+1, trans_knee +180.0, UNIT_DEGREE);
+		}
+		else {// i==5
+			dxl.setGoalPosition(i, -trans_hip +180.0, UNIT_DEGREE);
+			dxl.setGoalPosition(i+1, -trans_knee +180.0, UNIT_DEGREE);
+		}
+	}
+	delay(300);
+	
 	float setzero = -180.0;
 
 	for (int i = 1; i <= 7; i += 2) {
@@ -443,5 +467,3 @@ void Stop() {
 	Serial_trash(); // 시리얼 버퍼 비우기
 	delay(500);
 }
-
-// --------------------------------------------------------------------------------------
